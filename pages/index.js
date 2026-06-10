@@ -3,20 +3,31 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 
 export default function Landing() {
-  const router = useRouter()
-  const [mode,    setMode]    = useState('login')   // 'login' | 'register'
+  const router  = useRouter()
+  const [mode,    setMode]    = useState('login')
   const [form,    setForm]    = useState({ name:'', email:'', password:'', confirm:'' })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
+  const [success, setSuccess] = useState('')
 
   const field = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError(''); setLoading(true)
-    if (mode === 'register' && form.password !== form.confirm) {
-      setError('Passwords do not match.'); setLoading(false); return
+    setError(''); setSuccess(''); setLoading(true)
+
+    // Client-side validation
+    if (mode === 'register') {
+      if (form.password !== form.confirm) {
+        setError('Passwords do not match.'); setLoading(false); return
+      }
+      // Basic email format check
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+      if (!emailRegex.test(form.email)) {
+        setError('Please enter a valid email address.'); setLoading(false); return
+      }
     }
+
     try {
       const res = await fetch(`/api/auth/${mode}`, {
         method: 'POST',
@@ -25,6 +36,13 @@ export default function Landing() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Something went wrong.'); setLoading(false); return }
+
+      if (mode === 'register') {
+        // Show email verification message instead of redirecting
+        setSuccess('Account created! Please check your email to verify your account before signing in.')
+        setLoading(false)
+        return
+      }
       router.push('/app')
     } catch { setError('Network error. Please try again.'); setLoading(false) }
   }
@@ -33,131 +51,174 @@ export default function Landing() {
     <>
       <Head>
         <title>Pesa Tracker — Smart M-Pesa Ledger</title>
-        <meta name="description" content="Track M-Pesa transactions, manage student funds, budget smartly, and grow your investments." />
+        <meta name="description" content="Track your M-Pesa transactions, manage student funds, budget and invest smartly." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="min-h-screen" style={{ background:'linear-gradient(160deg,#f0fdf4 0%,#eff6ff 50%,#f0fdf4 100%)' }}>
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0f1e 0%, #0d2137 40%, #0a1628 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}>
 
-        {/* ── Nav ── */}
-        <nav className="bg-white border-b border-slate-200 shadow-sm">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div style={{width:38,height:38,borderRadius:10,background:'linear-gradient(135deg,#10b981,#0ea5e9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📲</div>
-              <div>
-                <div className="font-extrabold text-lg text-slate-900 leading-none">Pesa Tracker</div>
-                <div className="text-xs font-semibold tracking-widest" style={{color:'#10b981'}}>SMART M-PESA LEDGER</div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={()=>{setMode('login');setError('')}} className="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors">Sign In</button>
-              <button onClick={()=>{setMode('register');setError('')}} className="text-sm font-semibold text-white px-4 py-2 rounded-lg transition-opacity hover:opacity-90" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>Get Started</button>
-            </div>
-          </div>
-        </nav>
+        {/* Decorative background circles */}
+        <div style={{position:'fixed',top:'-80px',right:'-80px',width:320,height:320,borderRadius:'50%',background:'radial-gradient(circle,#10b98122,transparent)',pointerEvents:'none'}}/>
+        <div style={{position:'fixed',bottom:'-100px',left:'-100px',width:400,height:400,borderRadius:'50%',background:'radial-gradient(circle,#0ea5e922,transparent)',pointerEvents:'none'}}/>
 
-        <div className="max-w-6xl mx-auto px-4 py-12 flex flex-col lg:flex-row gap-12 items-center">
+        {/* Logo + Banner */}
+        <div style={{textAlign:'center',marginBottom:40}}>
+          <div style={{
+            width:64,height:64,borderRadius:18,
+            background:'linear-gradient(135deg,#10b981,#0ea5e9)',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:32,margin:'0 auto 16px',
+            boxShadow:'0 8px 32px #10b98144',
+          }}>📲</div>
+          <h1 style={{fontSize:32,fontWeight:800,color:'#fff',margin:'0 0 8px',letterSpacing:-1}}>
+            Pesa Tracker
+          </h1>
+          <p style={{fontSize:14,color:'#94a3b8',fontWeight:500,letterSpacing:2,margin:0}}>
+            SMART M-PESA LEDGER · 🇰🇪
+          </p>
 
-          {/* ── Hero ── */}
-          <div className="flex-1">
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full mb-6 tracking-wide">
-              🇰🇪 BUILT FOR KENYA · M-PESA NATIVE
-            </div>
-            <h1 className="text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight mb-4">
-              Your money,<br/>
-              <span style={{background:'linear-gradient(135deg,#10b981,#0ea5e9)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>fully in control.</span>
-            </h1>
-            <p className="text-slate-600 text-lg leading-relaxed mb-8">
-              Paste an M-Pesa SMS and watch it automatically categorized. Track student pocket money, log investments, set budgets, and get AI-powered financial coaching — all in one place.
-            </p>
-
-            {/* Feature list */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              {[
-                { icon:'📲', title:'Auto SMS Parsing',    desc:'Paste any M-Pesa SMS — received, sent or paid — and it\'s logged instantly.' },
-                { icon:'🎓', title:'Student Fund Tracking',desc:'Separate student pocket money from personal funds automatically.' },
-                { icon:'📈', title:'Investments & Savings',desc:'Track your MMF, SACCO, stocks and savings in one portfolio view.' },
-                { icon:'🤖', title:'AI Budget Coach',      desc:'Get personalized financial advice and smart budgeting help from Claude.' },
-                { icon:'🔔', title:'Auto SMS Forwarding',  desc:'Connect SMS Forwarder app to auto-log every M-Pesa message via webhook.' },
-                { icon:'📊', title:'Insights & Health Score',desc:'Daily, monthly and quarterly spending analysis with financial health scoring.' },
-              ].map(f => (
-                <div key={f.title} className="flex gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <div className="text-2xl flex-shrink-0">{f.icon}</div>
-                  <div>
-                    <div className="font-bold text-sm text-slate-900">{f.title}</div>
-                    <div className="text-xs text-slate-500 mt-1 leading-relaxed">{f.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Webhook info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
-              <div className="font-bold text-blue-800 mb-1">📡 Auto-forward M-Pesa SMS</div>
-              <div className="text-blue-700 leading-relaxed">After signing up, connect <strong>SMS Forwarder</strong> (Android) to your personal webhook URL. Every M-Pesa SMS will auto-log to your ledger — no manual pasting needed.</div>
-            </div>
-          </div>
-
-          {/* ── Auth Card ── */}
-          <div className="w-full max-w-md">
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
-              {/* Toggle */}
-              <div className="flex bg-slate-100 rounded-xl p-1 mb-6">
-                {['login','register'].map(m => (
-                  <button key={m} onClick={()=>{setMode(m);setError('')}} className="flex-1 py-2 text-sm font-bold rounded-lg transition-all" style={mode===m?{background:'linear-gradient(135deg,#10b981,#059669)',color:'#fff',boxShadow:'0 2px 8px #10b98128'}:{color:'#64748b'}}>
-                    {m==='login'?'Sign In':'Create Account'}
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {mode==='register' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1 tracking-wide uppercase">Full Name</label>
-                    <input required value={form.name} onChange={e=>field('name',e.target.value)} placeholder="John Kamau" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 tracking-wide uppercase">Email</label>
-                  <input required type="email" value={form.email} onChange={e=>field('email',e.target.value)} placeholder="john@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 tracking-wide uppercase">Password</label>
-                  <input required type="password" value={form.password} onChange={e=>field('password',e.target.value)} placeholder="Min 8 characters" minLength={8} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>
-                </div>
-                {mode==='register' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1 tracking-wide uppercase">Confirm Password</label>
-                    <input required type="password" value={form.confirm} onChange={e=>field('confirm',e.target.value)} placeholder="Repeat password" className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>
-                  </div>
-                )}
-
-                {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>}
-
-                <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-white font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60" style={{background:'linear-gradient(135deg,#10b981,#059669)',boxShadow:'0 4px 14px #10b98128'}}>
-                  {loading ? 'Please wait…' : mode==='login' ? '→ Sign In' : '→ Create Account'}
-                </button>
-              </form>
-
-              {mode==='login' && (
-                <p className="text-center text-xs text-slate-500 mt-4">Don't have an account? <button onClick={()=>{setMode('register');setError('')}} className="text-emerald-600 font-bold">Sign up free</button></p>
-              )}
-              {mode==='register' && (
-                <p className="text-center text-xs text-slate-500 mt-4">Already have an account? <button onClick={()=>{setMode('login');setError('')}} className="text-emerald-600 font-bold">Sign in</button></p>
-              )}
-            </div>
-
-            {/* Trust badges */}
-            <div className="flex justify-center gap-4 mt-4 text-xs text-slate-400 font-medium">
-              <span>🔒 Secure</span>
-              <span>•</span>
-              <span>🇰🇪 Kenya-built</span>
-              <span>•</span>
-              <span>💾 Auto-saved</span>
-            </div>
+          {/* Feature pills */}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center',marginTop:20}}>
+            {['📊 Budgeting','🎓 Student Funds','📈 Investments','🤖 AI Coach','📡 Auto SMS'].map(f=>(
+              <span key={f} style={{
+                background:'#ffffff0f',border:'1px solid #ffffff18',
+                color:'#94a3b8',fontSize:11,fontWeight:600,
+                padding:'4px 10px',borderRadius:20,
+              }}>{f}</span>
+            ))}
           </div>
         </div>
+
+        {/* Auth Card */}
+        <div style={{
+          width:'100%',maxWidth:420,
+          background:'#ffffff0a',
+          backdropFilter:'blur(20px)',
+          border:'1px solid #ffffff15',
+          borderRadius:24,
+          padding:'32px 28px',
+          boxShadow:'0 24px 60px #00000044',
+        }}>
+          {/* Tab toggle */}
+          <div style={{
+            display:'flex',background:'#ffffff0a',
+            borderRadius:12,padding:4,marginBottom:28,
+            border:'1px solid #ffffff10',
+          }}>
+            {['login','register'].map(m=>(
+              <button key={m} onClick={()=>{setMode(m);setError('');setSuccess('')}} style={{
+                flex:1,padding:'10px',borderRadius:9,border:'none',cursor:'pointer',
+                fontFamily:'inherit',fontSize:13,fontWeight:700,
+                transition:'all .2s',
+                background: mode===m ? 'linear-gradient(135deg,#10b981,#059669)' : 'transparent',
+                color: mode===m ? '#fff' : '#64748b',
+                boxShadow: mode===m ? '0 4px 12px #10b98133' : 'none',
+              }}>
+                {m==='login' ? 'Sign In' : 'Create Account'}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {mode==='register' && (
+              <div style={{marginBottom:14}}>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',letterSpacing:1,marginBottom:6,textTransform:'uppercase'}}>Full Name</label>
+                <input required value={form.name} onChange={e=>field('name',e.target.value)}
+                  placeholder="e.g. Brian Sahani"
+                  style={inputStyle}/>
+              </div>
+            )}
+            <div style={{marginBottom:14}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',letterSpacing:1,marginBottom:6,textTransform:'uppercase'}}>Email Address</label>
+              <input required type="email" value={form.email} onChange={e=>field('email',e.target.value)}
+                placeholder="your@email.com"
+                style={inputStyle}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',letterSpacing:1,marginBottom:6,textTransform:'uppercase'}}>Password</label>
+              <input required type="password" value={form.password} onChange={e=>field('password',e.target.value)}
+                placeholder="Minimum 8 characters"
+                minLength={8}
+                style={inputStyle}/>
+            </div>
+            {mode==='register' && (
+              <div style={{marginBottom:14}}>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',letterSpacing:1,marginBottom:6,textTransform:'uppercase'}}>Confirm Password</label>
+                <input required type="password" value={form.confirm} onChange={e=>field('confirm',e.target.value)}
+                  placeholder="Repeat your password"
+                  style={inputStyle}/>
+              </div>
+            )}
+
+            {error && (
+              <div style={{background:'#ff000015',border:'1px solid #ff000033',color:'#f87171',fontSize:13,padding:'10px 14px',borderRadius:10,marginBottom:14}}>
+                ⚠ {error}
+              </div>
+            )}
+            {success && (
+              <div style={{background:'#10b98115',border:'1px solid #10b98133',color:'#34d399',fontSize:13,padding:'10px 14px',borderRadius:10,marginBottom:14}}>
+                ✅ {success}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} style={{
+              width:'100%',padding:'13px',border:'none',borderRadius:12,cursor:'pointer',
+              background:'linear-gradient(135deg,#10b981,#059669)',
+              color:'#fff',fontFamily:'inherit',fontSize:14,fontWeight:700,
+              boxShadow:'0 4px 20px #10b98133',
+              opacity: loading ? 0.7 : 1,
+              transition:'opacity .2s,transform .1s',
+            }}>
+              {loading ? 'Please wait…' : mode==='login' ? '→ Sign In' : '→ Create Account'}
+            </button>
+          </form>
+
+          <p style={{textAlign:'center',fontSize:12,color:'#475569',marginTop:16}}>
+            {mode==='login' ? "Don't have an account? " : "Already have an account? "}
+            <button onClick={()=>{setMode(mode==='login'?'register':'login');setError('');setSuccess('')}}
+              style={{background:'none',border:'none',color:'#10b981',fontWeight:700,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+              {mode==='login' ? 'Sign up free' : 'Sign in'}
+            </button>
+          </p>
+        </div>
+
+        {/* Trust row */}
+        <div style={{display:'flex',gap:16,marginTop:24,fontSize:11,color:'#334155',fontWeight:600}}>
+          <span>🔒 Encrypted</span>
+          <span>·</span>
+          <span>🇰🇪 Kenya-built</span>
+          <span>·</span>
+          <span>💾 Auto-saved</span>
+          <span>·</span>
+          <span>🆓 Free to use</span>
+        </div>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        input::placeholder { color: #334155; }
+        input:focus { border-color: #10b981 !important; box-shadow: 0 0 0 3px #10b98118 !important; outline: none; }
+      `}</style>
     </>
   )
+}
+
+const inputStyle = {
+  display:'block',width:'100%',
+  background:'#ffffff08',
+  border:'1px solid #ffffff15',
+  borderRadius:10,color:'#e2e8f0',
+  fontFamily:"'Plus Jakarta Sans',sans-serif",
+  fontSize:13,padding:'11px 14px',
+  outline:'none',transition:'border-color .18s',
+  boxSizing:'border-box',
 }
