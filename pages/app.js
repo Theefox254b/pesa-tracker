@@ -441,7 +441,7 @@ export default function AppPage() {
 
 // ── Budget Tab ────────────────────────────────────────────────────────────────
 function BudgetTab({budget,budgetDraft,setBudgetDraft,budgetProgress,budgetTotal,budgetRemaining,panel,setPanel,handleSaveBudget,txs,totalSent,persBalance}) {
-  const [chatHistory,setChatHistory]=useState([{role:'ai',text:"Hi! I'm your AI budget coach. Tell me your monthly salary and what you typically spend on rent, transport, food and other fixed costs. I'll help you build a smart budget that lets you save and still enjoy life. 💚"}])
+  const [chatHistory,setChatHistory]=useState([{role:'ai',text:"Hello, I'm The Accountant — your personal finance coach. Tell me your monthly salary and what you typically spend on rent, transport, food and other fixed costs. I'll help you build a smart budget that works for your life. 💚"}])
   const [chatInput,setChatInput]=useState('')
   const [chatLoading,setChatLoading]=useState(false)
   const chatEndRef=useRef(null)

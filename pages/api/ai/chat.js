@@ -2,80 +2,111 @@ import { withAuth } from '../../../lib/auth'
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
-
-  // Security headers
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
 
   const { messages, system } = req.body
 
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'AI service not configured. Please add GEMINI_API_KEY to environment variables.' })
+  // Check API key exists
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    console.error('GEMINI_API_KEY is not set in environment variables')
+    return res.status(500).json({
+      error: 'The Accountant is not configured yet. Please add GEMINI_API_KEY to Vercel environment variables.'
+    })
   }
 
   try {
-    // Convert to Gemini format — roles must be 'user' or 'model'
-    // Also ensure messages alternate correctly (Gemini requires user/model alternation)
+    // Build Gemini-compatible message array
+    // Rules: must start with 'user', must alternate user/model, no consecutive same roles
+    const rawMessages = Array.isArray(messages) ? messages : []
     const geminiMessages = []
-    for (const m of messages) {
+
+    for (const m of rawMessages) {
       const role = m.role === 'assistant' ? 'model' : 'user'
-      // Skip consecutive same roles by merging
+      const content = (m.content || '').trim()
+      if (!content) continue
       const last = geminiMessages[geminiMessages.length - 1]
       if (last && last.role === role) {
-        last.parts[0].text += '\n' + m.content
+        // Merge consecutive same-role messages
+        last.parts[0].text += '\n' + content
       } else {
-        geminiMessages.push({ role, parts: [{ text: m.content }] })
+        geminiMessages.push({ role, parts: [{ text: content }] })
       }
     }
 
-    // Gemini requires first message to be from user
+    // Gemini requires messages to start with 'user'
     if (geminiMessages.length === 0 || geminiMessages[0].role !== 'user') {
       geminiMessages.unshift({ role: 'user', parts: [{ text: 'Hello' }] })
     }
 
+    // Must end with 'user' message for generateContent
+    if (geminiMessages[geminiMessages.length - 1].role !== 'user') {
+      const last = rawMessages[rawMessages.length - 1]
+      geminiMessages.push({ role: 'user', parts: [{ text: last?.content || 'Continue' }] })
+    }
+
+    const systemPrompt = system || `You are "The Accountant" — a sharp, caring personal finance coach for Kenyan professionals. 
+You are embedded in Pesa Tracker, an M-Pesa financial management app.
+Be direct, warm, and practical. Use Kenyan context: Ksh, M-Pesa, matatu, SACCO, chama, Nairobi cost of living.
+When you detect excessive spending, ask ONE probing question like "Which of these expenses could you live without this month?"
+Keep responses to 2-3 sentences max. Ask one question at a time to drive reflection.
+Never introduce yourself as anything other than "The Accountant".`
+
     const payload = {
-      system_instruction: {
-        parts: [{ text: system || 'You are a helpful Kenyan personal finance coach. Be direct and practical. Use Kenyan context.' }]
-      },
+      system_instruction: { parts: [{ text: systemPrompt }] },
       contents: geminiMessages,
       generationConfig: {
         maxOutputTokens: 800,
         temperature: 0.7,
+        topP: 0.9,
       },
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
       ],
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    )
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
 
     const data = await response.json()
 
+    // Handle Gemini API errors
     if (!response.ok || data.error) {
-      console.error('Gemini API error:', JSON.stringify(data.error || data))
-      const msg = data.error?.message || 'Gemini API returned an error.'
-      return res.status(502).json({ error: msg })
+      const errMsg = data.error?.message || `Gemini returned status ${response.status}`
+      console.error('Gemini API error:', errMsg)
+      // Give user a helpful message based on error type
+      if (data.error?.code === 400) {
+        return res.status(400).json({ error: 'The Accountant received an invalid request. Please try again.' })
+      }
+      if (data.error?.code === 403) {
+        return res.status(403).json({ error: 'Gemini API key is invalid or expired. Please check your GEMINI_API_KEY in Vercel.' })
+      }
+      if (data.error?.code === 429) {
+        return res.status(429).json({ error: 'Too many requests to The Accountant. Please wait a moment and try again.' })
+      }
+      return res.status(502).json({ error: `The Accountant is unavailable: ${errMsg}` })
     }
 
+    // Extract text from response
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
-      console.error('No text in Gemini response:', JSON.stringify(data))
-      return res.status(502).json({ error: 'AI returned an empty response. Please try again.' })
+      console.error('Empty Gemini response:', JSON.stringify(data).slice(0, 300))
+      return res.status(502).json({ error: 'The Accountant returned an empty response. Please try again.' })
     }
 
     return res.status(200).json({ text })
 
   } catch (e) {
     console.error('AI chat exception:', e.message)
-    return res.status(500).json({ error: 'Could not reach AI service. Check your GEMINI_API_KEY and network.' })
+    return res.status(500).json({ error: 'Could not reach The Accountant. Please check your internet connection.' })
   }
 })
